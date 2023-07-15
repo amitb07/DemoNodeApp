@@ -17,6 +17,7 @@ app.get('/', (request, response) => {
 
 app.get('/accounts', db.getAccounts)
 app.post('/inboundsms', db.inboundSMS)
+app.post('/outboundsms', db.outboundSMS)
 
 app.listen(port, () => {
     console.log(`App running on port ${port}.`)
