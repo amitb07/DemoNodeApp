@@ -17,6 +17,7 @@ Steps to setup the application:
 3. Launch a terminal in project repository, run the command: npm install
 4. To start the application, run command:  npm run start
     This will launch the application. 
+5. To see the unit tests results, run command: npm run test:coverage
 
 Testing the API's
 1. To test the API's import the postman collection provided with the project in postman folder.
