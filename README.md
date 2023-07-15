@@ -3,7 +3,9 @@ Demo application for assignment
 
 
 Setup the database
-1. run command: psql -U postgres -f schema.sql
+1. Install postgres, to check successful installation of postgres, open command prompt and run command: postgres --version  
+    if you get the response as the version of postgres, we are good to proceed further.
+2. run command: psql -U postgres -f schema.sql (the schema.sql file is added in the github repository)
 
 Setup redis server
 1. Install redis, If you are using windows system we need to use WSL. I am using Ubuntu LTS to run redis
