@@ -105,9 +105,10 @@ const inboundSMS = (request, response) => {
           }
           if(results2.rows[0] != null && results2.rows[0].account_id == acc_id)
           {
-            // check if the text has STOP
+            // check if the msg text has STOP
             if(msg.includes("STOP"))
             {
+              // check the from number in cache, if its not present add the from and to pair in cache
               const cacheResults = await redisClient.get(from);
               if (cacheResults) {
                 console.log('Found entry in cache');
@@ -163,14 +164,15 @@ const outboundSMS = async (request, response) => {
           }
           if(results2.rows[0] != null && results2.rows[0].account_id == acc_id)
           {
-            // check if the text has STOP
+            // to maintain the count of requests coming from a "from" number, the key string will look like "from:441224980087"
             let str = "from:";
             str = str.concat(from);
-            const cacheResults = await redisClient.get(str);
-            if (cacheResults) {
-              console.log('cache results: count: ', cacheResults)
-              if(cacheResults<=50)
-                await redisClient.set(str, Number(cacheResults)+1);
+            const RequestCount = await redisClient.get(str);
+            if (RequestCount) {
+              console.log('cache results: count: ', RequestCount)
+              
+              if(RequestCount<=50)
+                await redisClient.set(str, Number(RequestCount)+1);
               else
               {
                 response.status(400).json({message: "", error: "limit reached for from parameter"});

@@ -1,0 +1,97 @@
+{
+	"info": {
+		"_postman_id": "69666e75-3971-4b5a-a68d-c8f523828401",
+		"name": "Assignment_API testing",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "21187102"
+	},
+	"item": [
+		{
+			"name": "Get accounts",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\": \"azred2\", \r\n    \"auth_id\": \"54P2EOKQ47\", \r\n    \"to\": \"16052299352\", \r\n    \"from\": \"441224459426\",\r\n    \"msg\": \"No world STOP\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/accounts",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"accounts"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "PUT inbound SMS",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\": \"azred2\", \r\n    \"auth_id\": \"54P2EOKQ47\", \r\n    \"to\": \"16052299352\", \r\n    \"from\": \"441224459426\",\r\n    \"msg\": \"No world STOP\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/inboundsms",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"inboundsms"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "PUT outbound SMS",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\": \"azr1\", \r\n    \"auth_id\": \"20S0KPNOIM\", \r\n    \"to\": \"441224980096\", \r\n    \"from\": \"441224980098\",\r\n    \"msg\": \"No world STOP\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/outboundsms",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"outboundsms"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
