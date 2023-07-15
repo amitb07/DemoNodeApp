@@ -7,6 +7,34 @@ const pool = new Pool({
   port: 5432,
 })
 
+const redis = require("redis");
+
+(async () => {
+  redisClient = redis.createClient();
+
+  redisClient.on("error", (error) => console.error(`Error : ${error}`));
+
+  await redisClient.connect();
+})();
+
+function cache(to, from) {
+  const key = from;
+
+  client.get(key).then(reply => {
+    
+    if (reply) {
+      // res.send(JSON.parse(reply));
+      return true;
+    }
+    else {
+        client.set(from, to, {'EX':14400});
+        return false;
+    }
+  }).catch(err=>{
+    console.log(err);
+  });
+}
+
 
 const getAccounts = (request, response) => {
     pool.query('SELECT * FROM account', (error, results) => {
@@ -59,13 +87,26 @@ const getAccounts = (request, response) => {
               return;
             }
             const acc_id = results.rows[0].id;
-            pool.query('SELECT P.number, P.account_id FROM phone_number P INNER JOIN account A ON P.account_id = A.id where P.number =$1', [to], (error2, results2) => {
+            pool.query('SELECT P.number, P.account_id FROM phone_number P INNER JOIN account A ON P.account_id = A.id where P.number =$1', [to], async (error2, results2) => {
               if (error2) {
                 response.status(403).json({message: "", error: "parameter To is invalid"});
                 return;
               }
               if(results2.rows[0] != null && results2.rows[0].account_id == acc_id)
-                response.status(200).json(results2.rows);
+              {
+                // check if the text has STOP
+                if(msg.includes("STOP"))
+                {
+                  const cacheResults = await redisClient.get(from);
+                  if (cacheResults) {
+                    console.log('Found entry in cache');
+                  } else {
+                    await redisClient.set(from, to, {'EX':14400});
+                    console.log('adding entry in cache');
+                  }
+                }
+                response.status(200).json({message: "inbound sms ok", error: ""});
+              }  
               else
               {
                 response.status(403).json({message: "", error: "parameter To is invalid"});
@@ -79,7 +120,6 @@ const getAccounts = (request, response) => {
       return;
     }
   }
-
 
   module.exports = {
     getAccounts,
