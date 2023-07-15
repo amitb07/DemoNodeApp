@@ -17,201 +17,187 @@ const redis = require("redis");
   await redisClient.connect();
 })();
 
-function cache(to, from) {
-  const key = from;
-
-  client.get(key).then(reply => {
-    
-    if (reply) {
-      // res.send(JSON.parse(reply));
-      return true;
-    }
-    else {
-        client.set(from, to, {'EX':14400});
-        return false;
-    }
-  }).catch(err=>{
-    console.log(err);
+const getAccounts = (request, response) => {
+  const { username, auth_id } = request.body;
+    pool.query('SELECT * FROM account WHERE username = $1 AND auth_id = $2', [username, auth_id], (error, results) => {
+      if (results.rows[0] && results.rows[0].id ) {
+        console.log('results', results.rows[0]);
+        response.status(200).json(results.rows)
+      }
+      else{
+        response.status(400).json({ error: "invalid username"});
+        return;
+      }   
   });
 }
 
-
-const getAccounts = (request, response) => {
-    pool.query('SELECT * FROM account', (error, results) => {
-      if (error) {
-        throw error;
-      }
-      response.status(200).json(results.rows)
-    })
+function input_validation(request){
+  const { username, auth_id, msg, to, from } = request.body;
+  let response = {};
+  if(!auth_id)
+  {
+    response.is_valid = false;
+    response.message = "";
+    response.error = "auth_id parameter is missing";
+    return response;
+  } 
+  if(!username)
+  {
+    response.is_valid = false;
+    response.message = "";
+    response.error = "username parameter is missing";
+    return response;
+  } 
+  if(!to)
+  {
+    response.is_valid = false;
+    response.message = "";
+    response.error = "to parameter is missing";
+    return response;
   }
+  if(!from)
+  {
+    response.is_valid = false;
+    response.message = "";
+    response.error = "from parameter is missing";
+    return response;
+  }    
+  if(to.length <= 6 || to.length >= 16)
+  {
+    response.is_valid = false;
+    response.message = "";
+    response.error = "To parameter is Invalid (string length not valid)";
+    return response;
+  }    
+  if(from.length <= 6 || from.length >= 16)
+  {
+    response.is_valid = false;
+    response.message = "";
+    response.error = "from parameter is Invalid (string length not valid)";
+    return response;
+  }   
+  response.is_valid = true;
+  return response;
+}
 
-  const inboundSMS = (request, response) => {
-    const { username, auth_id, msg, to, from } = request.body;
-    try{
-      // input validation
-        if(!auth_id)
-        {
-          response.status(400).json({message: "", error: "auth_id parameter is missing"});
-          return;
-        } 
-        if(!username)
-        {
-          response.status(400).json({message: "", error: "username parameter is missing"});
-          return;
-        } 
-        if(!to)
-        {
-          response.status(400).json({message: "", error: "To parameter is missing"});
-          return;
-        } 
-        if(!from)
-        {
-          response.status(400).json({message: "", error: "from parameter is missing"});
-          return;
-        } 
-
-        if(to.length <= 6 || to.length >= 16)
-        {
-          response.status(400).json({message: "", error: "To parameter is Invalid"});
-          return;
-        } 
-        if(from.length <= 6 || from.length >= 16)
-        {
-          response.status(400).json({message: "", error: "From parameter is Invalid"});
-          return;
-        } 
-        // authenticate the user with valid username & auth_id  
-        pool.query('SELECT auth_id, id FROM account WHERE username = $1', [username], (error, results) => {
-            if (error) {
-              response.status(403).json({message: "", error: "Invalid username and auth_id"});
-              return;
-            }
-            const acc_id = results.rows[0].id;
-            pool.query('SELECT P.number, P.account_id FROM phone_number P INNER JOIN account A ON P.account_id = A.id where P.number =$1', [to], async (error2, results2) => {
-              if (error2) {
-                response.status(403).json({message: "", error: "parameter To is invalid"});
-                return;
-              }
-              if(results2.rows[0] != null && results2.rows[0].account_id == acc_id)
-              {
-                // check if the text has STOP
-                if(msg.includes("STOP"))
-                {
-                  const cacheResults = await redisClient.get(from);
-                  if (cacheResults) {
-                    console.log('Found entry in cache');
-                  } else {
-                    await redisClient.set(from, to, {'EX':14400});
-                    console.log('adding entry in cache');
-                  }
-                }
-                response.status(200).json({message: "inbound sms ok", error: ""});
-              }  
-              else
-              {
-                response.status(403).json({message: "", error: "parameter To is invalid"});
-                return;
-              }
-            });
-        });
-      }
-    catch(err){
-      response.status(400).msg("Error Encountered");
+const inboundSMS = (request, response) => {
+  const { username, auth_id, msg, to, from } = request.body;
+  try{
+    // input validation
+    const validate = input_validation(request);
+    if(validate.is_valid == false)
+    {
+      response.status(400).json({message: validate.message, error: validate.error});
       return;
     }
-  }
-
-  const outboundSMS = async (request, response) => {
-    const { username, auth_id, msg, to, from } = request.body;
-    try{
-      if(!to)
-      {
-        response.status(400).json({message: "", error: "To parameter is missing"});
-        return;
-      } 
-      if(!from)
-      {
-        response.status(400).json({message: "", error: "from parameter is missing"});
-        return;
-      } 
-      const cacheResults = await redisClient.get(from);
-      if (cacheResults && cacheResults == to) {
-        console.log('Found entry of to & from pair in cache');
-        response.status(400).json({message: "", error: "sms from <from> to <to> blocked by STOP request parameter is missing"});
-        return;
-      } 
-
-      // input validation
-        if(!auth_id)
-        {
-          response.status(400).json({message: "", error: "auth_id parameter is missing"});
+    // authenticate the user with username & auth_id credentials
+    pool.query('SELECT * FROM account WHERE username = $1 AND auth_id = $2', [username, auth_id], (error, results) => {
+    // pool.query('SELECT auth_id, id FROM account WHERE username = $1 AND auth_id = $2', [username, auth_id], (error, results) => {
+        if (!results.rows[0] || !results.rows[0].id) {
+          response.status(403).json({message: "", error: "Invalid username and auth_id"});
           return;
-        } 
-        if(!username)
-        {
-          response.status(400).json({message: "", error: "username parameter is missing"});
-          return;
-        } 
-
-        if(to.length <= 6 || to.length >= 16)
-        {
-          response.status(400).json({message: "", error: "To parameter is Invalid"});
-          return;
-        } 
-        if(from.length <= 6 || from.length >= 16)
-        {
-          response.status(400).json({message: "", error: "From parameter is Invalid"});
-          return;
-        } 
-        // authenticate the user with valid username & auth_id  
-        pool.query('SELECT auth_id, id FROM account WHERE username = $1', [username], (error, results) => {
-            if (error) {
-              response.status(403).json({message: "", error: "Invalid username and auth_id"});
-              return;
+        }
+        const acc_id = results.rows[0].id;
+        pool.query('SELECT P.number, P.account_id FROM phone_number P INNER JOIN account A ON P.account_id = A.id where P.number =$1', [to], async (error2, results2) => {
+          if (error2) {
+            response.status(403).json({message: "", error: "parameter To is invalid"});
+            return;
+          }
+          if(results2.rows[0] != null && results2.rows[0].account_id == acc_id)
+          {
+            // check if the text has STOP
+            if(msg.includes("STOP"))
+            {
+              const cacheResults = await redisClient.get(from);
+              if (cacheResults) {
+                console.log('Found entry in cache');
+              } else {
+                await redisClient.set(from, to, {'EX':14400});
+                console.log('adding entry in cache');
+              }
             }
-            const acc_id = results.rows[0].id;
-            pool.query('SELECT P.number, P.account_id FROM phone_number P INNER JOIN account A ON P.account_id = A.id where P.number =$1', [from], async (error2, results2) => {
-              if (error2) {
-                response.status(403).json({message: "", error: "parameter From is invalid"});
-                return;
-              }
-              if(results2.rows[0] != null && results2.rows[0].account_id == acc_id)
-              {
-                // check if the text has STOP
-                let str = "from:";
-                str = str.concat(from);
-                const cacheResults = await redisClient.get(str);
-                if (cacheResults) {
-                  console.log('cache results: count: ', cacheResults)
-                  if(cacheResults<=50)
-                    await redisClient.set(str, Number(cacheResults)+1);
-                  else
-                  {
-                    response.status(400).json({message: "", error: "limit reached for from parameter"});
-                    return;
-                  }  
-                } else {
-                    await redisClient.set(str, 1, {'EX':86400});
-                    console.log('adding entry in cache');
-                }
-                response.status(200).json({message: "outbound sms ok", error: ""});
-              }  
-              else
-              {
-                response.status(403).json({message: "", error: "parameter From is invalid"});
-                return;
-              }
-            });
+            response.status(200).json({message: "inbound sms ok", error: ""});
+          }  
+          else
+          {
+            response.status(403).json({message: "", error: "parameter To is invalid"});
+            return;
+          }
         });
-      }
-    catch(err){
-      response.status(400).msg("Error Encountered");
+    });
+  }
+  catch(err){
+    response.status(400).json({error: err});
+    return;
+  }
+}
+
+const outboundSMS = async (request, response) => {
+  const { username, auth_id, msg, to, from } = request.body;
+  try{
+    // input validation
+    const validate = input_validation(request);
+    if(validate.is_valid == false)
+    {
+      response.status(400).json({message: validate.message, error: validate.error});
       return;
     }
+    // checking in (STOP)cache if the to & from pair exists 
+    const cacheResults = await redisClient.get(from);
+    if (cacheResults && cacheResults == to) {
+      console.log('Found entry of to & from pair in cache');
+      response.status(400).json({message: "", error: "sms from <from> to <to> blocked by STOP request parameter is missing"});
+      return;
+    } 
+      // authenticate the user with username & auth_id credentials
+    pool.query('SELECT auth_id, id FROM account WHERE username = $1 AND auth_id = $2', [username, auth_id], (error, results) => {
+        if (!results.rows[0] || !results.rows[0].id) {
+          response.status(403).json({message: "", error: "Invalid username and auth_id"});
+          return;
+        }
+        const acc_id = results.rows[0].id;
+        pool.query('SELECT P.number, P.account_id FROM phone_number P INNER JOIN account A ON P.account_id = A.id where P.number =$1', [from], async (error2, results2) => {
+          if (error2) {
+            response.status(403).json({message: "", error: "parameter From is invalid"});
+            return;
+          }
+          if(results2.rows[0] != null && results2.rows[0].account_id == acc_id)
+          {
+            // check if the text has STOP
+            let str = "from:";
+            str = str.concat(from);
+            const cacheResults = await redisClient.get(str);
+            if (cacheResults) {
+              console.log('cache results: count: ', cacheResults)
+              if(cacheResults<=50)
+                await redisClient.set(str, Number(cacheResults)+1);
+              else
+              {
+                response.status(400).json({message: "", error: "limit reached for from parameter"});
+                return;
+              }  
+            } else {
+                await redisClient.set(str, 1, {'EX':86400});
+                console.log('adding entry in cache');
+            }
+            response.status(200).json({message: "outbound sms ok", error: ""});
+          }  
+          else
+          {
+            response.status(403).json({message: "", error: "parameter From is invalid"});
+            return;
+          }
+        });
+    });
   }
+  catch(err){
+    response.status(400).json({error: err});
+    return;
+  }
+}
 
-  module.exports = {
-    getAccounts,
-    inboundSMS,
-    outboundSMS
-  }
+module.exports = {
+  getAccounts,
+  inboundSMS,
+  outboundSMS
+}
